@@ -1,10 +1,132 @@
-Documentação Técnica: Mecanismo de HeartbeatSprint 1: Infraestrutura e Verificação de Atividade1. Objetivo da SprintO objetivo primordial desta etapa é estabelecer a comunicação fundamental entre o Worker (Cliente) e o Master (Servidor). O foco está em garantir que o Worker consiga verificar de forma persistente se o seu Master está ativo através de trocas de mensagens JSON via protocolo TCP.  2. Infraestrutura de ComunicaçãoA base do sistema utiliza sockets TCP para garantir a entrega confiável das mensagens.  Configuração do Master: Atua como servidor, escutando em uma porta pré-definida por novas conexões.  Configuração do Worker: Atua como cliente, iniciando a conexão com o endereço do Master.  Delimitador de Mensagem: Para a correta identificação dos objetos no stream TCP, utiliza-se obrigatoriamente o caractere de nova linha (\n) ao final de cada objeto JSON.  Concorrência: O Master utiliza múltiplas threads (ou AsyncIO) para que o processamento de um Heartbeat não bloqueie outras operações simultâneas.  3. Protocolo Heartbeat (Payloads Oficiais)A verificação de atividade segue o padrão de pergunta e resposta definido para o projeto.  3.1. Requisição (Worker → Master)O Worker dispara o payload para verificar a disponibilidade do servidor.  JSON{
+# Projeto ASD - Sistemas Distribuídos
+
+Este repositório contém a implementação de um sistema distribuído baseado na arquitetura **Master-Worker** com balanceamento de carga e protocolo **P2P**.
+
+O objetivo principal é coordenar tarefas entre múltiplos nós utilizando comunicação via **Sockets TCP** e mensagens padronizadas em **JSON**.
+
+---
+
+## 📋 Pré-requisitos
+
+- Python 3.x
+- Bibliotecas nativas:
+  - `socket`
+  - `json`
+  - `threading`
+  - `queue`
+
+---
+
+# 🛰️ Sprint 1: Mecanismo de Heartbeat
+
+O objetivo desta sprint foi estabelecer a infraestrutura de rede e garantir a verificação de disponibilidade (saúde) entre o **Worker** e o **Master**.
+
+## Detalhes Técnicos
+
+- **Protocolo:** TCP  
+- **Mensageria:** JSON com delimitador `\n` ao final de cada objeto  
+- **Concorrência:** Master implementado com threads para atendimento simultâneo  
+
+## Payloads Oficiais
+
+### Requisição (Worker → Master)
+
+```json
+{
   "SERVER_UUID": "Master_A",
   "TASK": "HEARTBEAT"
 }
-3.2. Resposta (Master → Worker)O Master interpreta a tarefa e devolve a confirmação imediata de atividade.  JSON{
+```
+
+### Resposta (Master → Worker)
+
+```json
+{
   "SERVER_UUID": "Master_A",
   "TASK": "HEARTBEAT",
   "RESPONSE": "ALIVE"
 }
-4. Processos e Tarefas RealizadasPara o cumprimento desta Sprint, foram executadas as seguintes subtarefas:  Desenvolvimento da Lógica de Requisição: Implementação da função no Worker para disparar o payload de verificação em intervalos regulares (ex: a cada 10 a 30 segundos).  Lógica de Resposta no Master: Programação do servidor para realizar o parsing do JSON, validar a chave "TASK" como "HEARTBEAT" e retornar o status "ALIVE".  Resiliência e Loop: Criação de um mecanismo de tratamento de exceções no Worker para identificar falhas de rede ou Master offline, disparando logs de tentativa de reconexão.  5. Definição de "Pronto" (DoD)A Sprint 1 é considerada concluída ao atingir os seguintes critérios de sucesso:  Conectividade: O Worker abre a conexão TCP com sucesso.  Parsing de Dados: O Master recebe e processa o JSON sem erros de sintaxe.  Feedback Visual: O Worker recebe a confirmação e imprime "Status: ALIVE" no log de console.  Estabilidade: O sistema mantém o ciclo de verificações sem travar os processos principais ou vazar memória.  
+```
+
+---
+
+## 🛠️ Como Executar
+
+### 1. Iniciar o Master
+
+O Master atua como servidor e deve ser iniciado primeiro para abrir a porta de escuta.
+
+```bash
+python Master.py
+```
+
+### 2. Iniciar o Worker
+
+O Worker atua como cliente e iniciará o ciclo de Heartbeat automaticamente ao conectar.
+
+```bash
+python worker.py
+```
+
+> **Nota:** Certifique-se de que o IP e a Porta definidos nos scripts sejam os mesmos para que a conexão seja estabelecida corretamente.
+
+---
+
+# 🔄 Sprint 2: Comunicação de Tarefas
+
+Nesta fase, implementamos a lógica de consumo de fila e o reporte de status das tarefas processadas.
+
+## Fluxo de Trabalho
+
+1. **Apresentação:** O Worker se conecta e envia seu `WORKER_UUID`.
+2. **Distribuição:** O Master consome uma tarefa da sua queue interna e despacha para o Worker.
+3. **Processamento:** O Worker simula a execução da tarefa (`QUERY`).
+4. **Confirmação:** Após o reporte de status pelo Worker, o Master responde com um `ACK` para finalizar o ciclo.
+
+## Payloads de Tarefa
+
+### Pedido
+
+```json
+{
+  "WORKER": "ALIVE",
+  "WORKER_UUID": "W-123"
+}
+```
+
+### Envio
+
+```json
+{
+  "TASK": "QUERY",
+  "USER": "Nome_Usuario"
+}
+```
+
+### Status
+
+```json
+{
+  "STATUS": "OK",
+  "TASK": "QUERY",
+  "WORKER_UUID": "W-123"
+}
+```
+
+### ACK
+
+```json
+{
+  "STATUS": "ACK",
+  "WORKER_UUID": "W-123"
+}
+```
+
+---
+
+## ✅ Melhorias da Documentação
+
+- **Títulos com emojis:** facilitam navegação e leitura no GitHub.
+- **Blocos de código com syntax highlighting:** melhor visualização de comandos e payloads.
+- **Hierarquia organizada:** seção **Como Executar** destacada.
+- **README atualizado:** documentação acompanha evolução do projeto até a Sprint 2.

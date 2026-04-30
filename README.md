@@ -42,3 +42,42 @@ Conectividade: O Worker abre a conexão TCP com sucesso.
 Parsing de Dados: O Master recebe e processa o JSON sem erros de sintaxe.
 Feedback Visual: O Worker recebe a confirmação e imprime "Status: ALIVE" no log de console.
 Estabilidade: O sistema mantém o ciclo de verificações sem travar os processos principais ou vazar memória.
+
+
+Como Executar a Sprint 1 (Mecanismo de Heartbeat)
+Esta sprint foca na infraestrutura de comunicação base e na verificação de atividade entre o Worker e o Master via TCP.  
+
+Pré-requisitos
+Python 3.x instalado.
+
+Bibliotecas padrão socket, json e threading.
+
+1. Iniciar o Nó Master (Servidor)
+O Master deve ser iniciado primeiro para que possa escutar as conexões recebidas. No terminal, navegue até a pasta do Master e execute:  
+
+Bash
+python Master.py
+O que acontece: O Master abrirá um socket TCP e ficará aguardando por mensagens de Heartbeat no padrão JSON com delimitador \n.  
+
+2. Iniciar o Nó Worker (Cliente)
+Com o Master rodando, abra um novo terminal, navegue até a pasta do Worker e execute:
+
+Bash
+python worker.py
+O que acontece: O Worker iniciará uma conexão TCP com o Master e enviará automaticamente o payload de verificação.  
+
+3. Resultados Esperados (Logs)
+Se a comunicação estiver correta, você verá as seguintes interações nos terminais:
+
+No terminal do Worker:
+
+Mensagem indicando o envio do Heartbeat: {"SERVER_UUID": "Master_A", "TASK": "HEARTBEAT"}.  
+
+Recebimento da confirmação: Status: ALIVE.  
+
+No terminal do Master:
+
+Log de conexão recebida do Worker.
+
+Resposta enviada: {"SERVER_UUID": "Master_A", "TASK": "HEARTBEAT", "RESPONSE": "ALIVE"}.  
+

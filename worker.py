@@ -1,40 +1,63 @@
 import socket
 import json
 import time
+import random
 
-def send_heartbeat(host='localhost', port=5000):
+def start_worker(host='localhost', port=5000):
     worker_uuid = "Worker_A1"
+    master_vinc = "Master_A"
     print(f"[SISTEMA] Iniciando Worker {worker_uuid}...")
 
     while True:
         try:
-            # Tenta conectar ao Master
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.connect((host, port))
-                sock.settimeout(5.0) # Timeout para evitar travamentos
-                
+                sock.settimeout(10.0)
+                print(f"[CONEXÃO] Conectado ao Master.")
+
                 while True:
-                    # Payload oficial de envio
+                    # TAREFA 01: Handshake de Apresentação[cite: 1]
                     payload = {
-                        "SERVER_UUID": worker_uuid,
-                        "TASK": "HEARTBEAT"
+                        "WORKER": "ALIVE",
+                        "WORKER_UUID": worker_uuid,
+                        "SERVER_UUID": master_vinc
                     }
-                    
-                    message = json.dumps(payload) + "\n"
-                    sock.sendall(message.encode('utf-8'))
-                    
-                    # Aguarda resposta
+                    sock.sendall((json.dumps(payload) + "\n").encode('utf-8'))
+
+                    # TAREFA 02: Recebendo a Tarefa (User)[cite: 1]
                     data = sock.recv(1024).decode('utf-8')
-                    if data:
-                        response = json.loads(data.strip())
-                        print(f"[LOG] Status: {response.get('RESPONSE')} (Master: {response.get('SERVER_UUID')})")
-                    
-                    # Intervalo entre heartbeats (ajustável)
-                    time.sleep(10)
-                    
-        except (ConnectionRefusedError, socket.error):
-            print("[LOG] Status: OFFLINE - Tentando Reconectar em 5s...")
+                    if not data: break
+                    response = json.loads(data.strip())
+
+                    if response.get("TASK") == "QUERY":
+                        user = response.get("USER")
+                        print(f"[TRABALHO] Processando usuário: {user}...")
+
+                        # TAREFA 03: Simulação de Processamento[cite: 1]
+                        time.sleep(random.uniform(2, 4))
+
+                        # Reportando o Status
+                        report = {
+                            "STATUS": "OK",
+                            "TASK": "QUERY",
+                            "WORKER_UUID": worker_uuid
+                        }
+                        sock.sendall((json.dumps(report) + "\n").encode('utf-8'))
+
+                        # TAREFA 04: Esperando o ACK do Master[cite: 1]
+                        ack_data = sock.recv(1024).decode('utf-8')
+                        if ack_data and json.loads(ack_data).get("STATUS") == "ACK":
+                            print(f"[SUCESSO] Tarefa '{user}' confirmada pelo Master.")
+
+                    elif response.get("TASK") == "NO_TASK":
+                        print("[FILA] Sem tarefas. Aguardando 10s...")
+                        time.sleep(10)
+
+                    time.sleep(1) # Pequena pausa entre ciclos
+
+        except (socket.error, json.JSONDecodeError):
+            print("[LOG] Status: OFFLINE - Reconectando em 5s...")
             time.sleep(5)
 
 if __name__ == "__main__":
-    send_heartbeat() dps tu roda esse  arquivo  no  teu VS  code junto do Master la no git hub pra ver se ta rodando ai tbm blz
+    start_worker()

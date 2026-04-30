@@ -124,9 +124,4 @@ Nesta fase, implementamos a lógica de consumo de fila e o reporte de status das
 
 ---
 
-## ✅ Melhorias da Documentação
 
-- **Títulos com emojis:** facilitam navegação e leitura no GitHub.
-- **Blocos de código com syntax highlighting:** melhor visualização de comandos e payloads.
-- **Hierarquia organizada:** seção **Como Executar** destacada.
-- **README atualizado:** documentação acompanha evolução do projeto até a Sprint 2.

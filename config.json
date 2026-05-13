@@ -1,0 +1,9 @@
+{
+  "host": "localhost",
+  "port": 5000,
+  "master_uuid": "Master_A",
+  "threshold": 3,
+  "neighbors": ["localhost:5001"],
+  "worker_uuid": "Worker_A1",
+  "original_master": "Master_A"
+}

@@ -2,20 +2,26 @@ import socket
 import json
 import threading
 import queue
+import logging
 
-# Configurações do Master
-HOST = 'localhost'
-PORT = 5000
-MASTER_UUID = "Master_A"
+# Carregar configuração
+config = json.load(open('config.json'))
 
-# --- TAREFA 02: Fila de tarefas pendentes (Sprint 2) ---
-# O Master agora gerencia quem deve ser processado
+# Configurar logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Fila de tarefas
 task_queue = queue.Queue()
-for nome in ["Nicolas", "Michel", "Guilherme", "Gabriel"]:
+for nome in ["Nicolas", "Michel", "Guilherme", "Gabriel","Paloma"]:
     task_queue.put(nome)
 
+# Estado para negociação
+active_workers = 0
+borrowed_workers = {}  # {worker_uuid: neighbor}
+
 def handle_worker(client_socket, address):
-    print(f"[CONEXÃO] Worker conectado de {address}")
+    global active_workers, borrowed_workers  # Declarar global no início da função
+    logging.info(f"[CONEXÃO] Worker conectado de {address}")
     buffer = ""
 
     try:
@@ -31,54 +37,89 @@ def handle_worker(client_socket, address):
                 try:
                     payload = json.loads(line)
 
-                    # 1. Mantém suporte ao Heartbeat da Sprint 1
                     if payload.get("TASK") == "HEARTBEAT":
-                        print(f"[HEARTBEAT] Recebido de: {payload.get('SERVER_UUID')}")
+                        logging.info(f"[HEARTBEAT] Recebido de: {payload.get('SERVER_UUID')}")
                         response = {
-                            "SERVER_UUID": MASTER_UUID,
+                            "SERVER_UUID": config['master_uuid'],
                             "TASK": "HEARTBEAT",
                             "RESPONSE": "ALIVE"
                         }
 
-                    # 2. NOVA LOGICA SPRINT 2: Apresentação e Pedido de Tarefa
                     elif payload.get("WORKER") == "ALIVE":
                         w_uuid = payload.get("WORKER_UUID")
-                        print(f"[PEDIDO] Worker {w_uuid} solicitando tarefa.")
+                        logging.info(f"[PEDIDO] Worker {w_uuid} solicitando tarefa.")
+                        active_workers += 1
 
                         if not task_queue.empty():
                             user_task = task_queue.get()
                             response = {"TASK": "QUERY", "USER": user_task}
-                            print(f"[FILA] Enviando usuário '{user_task}' para {w_uuid}")
+                            logging.info(f"[FILA] Enviando usuário '{user_task}' para {w_uuid}")
                         else:
                             response = {"TASK": "NO_TASK"}
 
-                    # 3. NOVA LOGICA SPRINT 2: Recebimento de Status e Envio de ACK
                     elif "STATUS" in payload and payload.get("TASK") == "QUERY":
                         w_uuid = payload.get("WORKER_UUID")
-                        print(f"[STATUS] Worker {w_uuid} concluiu tarefa: {payload['STATUS']}")
-                        # O ACK é obrigatório para confirmar o recebimento
+                        logging.info(f"[STATUS] Worker {w_uuid} concluiu tarefa: {payload['STATUS']}")
+                        active_workers -= 1
                         response = {"STATUS": "ACK", "WORKER_UUID": w_uuid}
+
+                        # Novo: Se worker emprestado e carga baixa, devolva
+                        if w_uuid in borrowed_workers and task_queue.qsize() <= config['threshold'] // 2:
+                            neighbor = borrowed_workers[w_uuid]
+                            try:
+                                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                                    host, port = neighbor.split(':')
+                                    sock.connect((host, int(port)))
+                                    return_msg = {"TASK": "RETURN_WORKER", "WORKER_UUID": w_uuid}
+                                    sock.sendall((json.dumps(return_msg) + "\n").encode('utf-8'))
+                                    del borrowed_workers[w_uuid]
+                                    logging.info(f"Worker {w_uuid} devolvido a {neighbor}")
+                            except Exception as e:
+                                logging.error(f"Erro ao devolver worker: {e}")
 
                     client_socket.sendall((json.dumps(response) + "\n").encode('utf-8'))
                 except json.JSONDecodeError:
-                    print("[ERRO] JSON inválido.")
+                    logging.error("[ERRO] JSON inválido.")
     except Exception as e:
-        print(f"[ERRO] Conexão com {address} encerrada.")
+        logging.error(f"[ERRO] Conexão com {address} encerrada: {e}")
     finally:
         client_socket.close()
+
+def check_load_and_negotiate():
+    global borrowed_workers  # Declarar global no início da função
+    if task_queue.qsize() > config['threshold'] and not borrowed_workers:
+        for neighbor in config['neighbors']:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    host, port = neighbor.split(':')
+                    sock.connect((host, int(port)))
+                    request = {"TASK": "REQUEST_HELP", "MASTER_UUID": config['master_uuid'], "NEEDED_WORKERS": 1}
+                    sock.sendall((json.dumps(request) + "\n").encode('utf-8'))
+                    response_data = sock.recv(1024).decode('utf-8').strip()
+                    response = json.loads(response_data)
+                    if response.get("TASK") == "GRANT_HELP":
+                        worker_uuid = response.get("WORKER_UUID")
+                        borrowed_workers[worker_uuid] = neighbor
+                        # Instrua o worker a mudar (assumindo que o vizinho envia via seu socket)
+                        logging.info(f"Worker {worker_uuid} emprestado de {neighbor}")
+                        break  # Para um por vez
+            except Exception as e:
+                logging.error(f"Falha ao negociar com {neighbor}: {e}")
 
 def start_master():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((HOST, PORT))
+    server.bind((config['host'], config['port']))
     server.listen(5)
-    print(f"--- MASTER {MASTER_UUID} ONLINE (SPRINT 2) ---")
+    logging.info(f"--- MASTER {config['master_uuid']} ONLINE (SPRINT 3) ---")
 
     while True:
         client_sock, addr = server.accept()
         thread = threading.Thread(target=handle_worker, args=(client_sock, addr))
         thread.daemon = True
         thread.start()
+        # Verifica carga periodicamente (simplificado; em produção, use timer)
+        check_load_and_negotiate()
 
 if __name__ == "__main__":
     start_master()

@@ -1,9 +1,9 @@
 {
-  "host": "localhost",
+  "host": "192.168.0.107",
   "port": 5000,
   "master_uuid": "Master_A",
   "threshold": 3,
-  "neighbors": ["localhost:5001"],
+  "neighbors": ["192.168.1.13:5001"],
   "worker_uuid": "Worker_A1",
   "original_master": "Master_A"
 }

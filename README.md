@@ -1,68 +1,218 @@
 # Projeto ASD - Sistemas Distribuídos
 
-Este repositório contém a implementação de um sistema distribuído baseado na arquitetura **Master-Worker** com balanceamento de carga dinâmica e protocolo **P2P (Peer-to-Peer)**.
+### Sistema P2P com Balanceamento Dinâmico de Carga
 
-O objetivo é coordenar tarefas entre múltiplos nós utilizando comunicação via **Sockets TCP** e mensagens padronizadas em **JSON**, garantindo autonomia e interoperabilidade entre sistemas de diferentes equipes.
+## 📋 Resumo
 
----
+Implementação de um sistema distribuído **Master–Worker** que demonstra **balanceamento horizontal dinâmico** via protocolo **P2P entre Masters**.
 
-# 📋 Pré-requisitos
+Cada Master gerencia uma farm de Workers, monitora sua fila de tarefas e, quando saturado, negocia com Masters vizinhos para receber Workers temporariamente emprestados.
 
-- Python 3.x
-
-### Bibliotecas nativas utilizadas
-As bibliotecas abaixo já vêm incluídas no Python padrão:
-
-- `socket`
-- `json`
-- `threading`
-- `queue`
-- `logging`
+A comunicação ocorre via **sockets TCP** utilizando mensagens **JSON newline-delimited (`\n`)**.
 
 ---
 
-# 🏗️ Arquitetura Geral
+# 📚 Sumário
 
-## Nó Master
-Responsável por:
-
-- Gerenciar uma fila de tarefas
-- Distribuir trabalho para Workers locais
-- Monitorar carga do sistema
-- Negociar empréstimo de Workers com Masters vizinhos quando saturado
-
-## Nó Trabalhador (Worker)
-Responsável por:
-
-- Processar tarefas recebidas
-- Simular execução
-- Reportar status ao Master
-- Ser redirecionado dinamicamente para outro Master
-
-## Comunicação
-- Protocolo TCP
-- Mensagens em JSON
-- Delimitador `\n` ao final de cada mensagem
-- Protocolo consensual para negociação P2P
+* [Requisitos](#-requisitos-mínimos)
+* [Instalação](#-instalação)
+* [Git Ignore](#-ignorar-virtualenv-no-git)
+* [Estrutura do Projeto](#-estrutura-de-arquivos-principais)
+* [Configuração](#-explicação-do-configjson)
+* [Protocolo de Comunicação](#-regras-de-protocolo)
+* [Sprint 1 — Heartbeat](#-sprint-1--heartbeat)
+* [Sprint 2 — Ciclo de Tarefas](#-sprint-2--apresentação--ciclo-de-tarefas)
+* [Sprint 3 — P2P e Redirecionamento](#-sprint-3--negociação-mastermaster-p2p-e-redirecionamento)
+* [Sprint 4 — Telemetria](#-sprint-4--telemetria-e-dashboard)
+* [Evidências para Entrega](#-evidências-para-entrega)
 
 ---
 
-# 🛰️ Sprint 1 — Mecanismo de Heartbeat
+# 🔧 Requisitos Mínimos
 
-Estabelece a infraestrutura de rede e verifica a disponibilidade entre Worker e Master.
+* Python 3.8+
 
-## Detalhes Técnicos
+  * Recomendado: Python 3.9 ou superior
+* Biblioteca:
 
-| Item | Tecnologia |
-|------|-------------|
-| Protocolo | TCP |
-| Mensageria | JSON |
-| Delimitador | `\n` |
-| Concorrência | Threads |
+```bash
+psutil
+```
 
-## Payloads Oficiais
+Recomenda-se utilizar ambiente virtual (`venv`).
 
-### Requisição (Worker → Master)
+---
+
+# 🚀 Instalação
+
+## 1. Entrar na pasta do projeto
+
+```powershell
+cd "C:\Users\Cliente\Desktop\Sistemas Distribuidos\Projeto-ASD"
+```
+
+## 2. Criar e ativar ambiente virtual
+
+```powershell
+python -m venv .venv
+
+.\.venv\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip
+
+pip install psutil
+```
+
+## 3. Gerar requirements.txt (opcional)
+
+```powershell
+pip freeze > requirements.txt
+```
+
+Conteúdo mínimo recomendado:
+
+```txt
+psutil==7.2.2
+```
+
+---
+
+# 📂 Ignorar Virtualenv no Git
+
+Adicione ao arquivo `.gitignore`:
+
+```gitignore
+.venv/
+__pycache__/
+*.pyc
+*.log
+```
+
+---
+
+# 📁 Estrutura de Arquivos Principais
+
+```text
+Projeto-ASD/
+│
+├── Master.py
+├── worker.py
+├── config.json
+├── requirements.txt
+└── README.md
+```
+
+| Arquivo       | Descrição                                       |
+| ------------- | ----------------------------------------------- |
+| `Master.py`   | Nó Master (Servidor + Cliente P2P + Telemetria) |
+| `worker.py`   | Nó Worker responsável pelo processamento        |
+| `config.json` | Arquivo de configuração do sistema              |
+
+---
+
+# ⚙️ Explicação do `config.json`
+
+Exemplo:
+
+```json
+{
+  "host": "127.0.0.1",
+  "port": 5000,
+  "master_uuid": "michel_1",
+  "original_master": "michel_1",
+  "threshold": 3,
+  "neighbors": ["127.0.0.1:5001"],
+  "worker_uuid": "Worker_A1",
+  "hostname": "master-a.local",
+  "default_peer_port": 5000
+}
+```
+
+## Significado dos Campos
+
+| Campo               | Descrição                                    |
+| ------------------- | -------------------------------------------- |
+| `host`              | IP onde o Master escuta conexões             |
+| `port`              | Porta TCP utilizada pelo Master              |
+| `master_uuid`       | Identificador único do Master                |
+| `original_master`   | Master de origem do Worker                   |
+| `threshold`         | Limite para solicitar ajuda a outros Masters |
+| `neighbors`         | Lista de Masters vizinhos                    |
+| `worker_uuid`       | Identificador único do Worker                |
+| `hostname`          | Nome amigável para dashboard                 |
+| `default_peer_port` | Porta padrão para peers                      |
+
+---
+
+# 📡 Regras de Protocolo
+
+## Delimitação
+
+Todas as mensagens JSON terminam com:
+
+```text
+\n
+```
+
+---
+
+## Worker ↔ Master
+
+Campos de controle devem estar em **MAIÚSCULAS**:
+
+```text
+WORKER
+TASK
+STATUS
+ACK
+ALIVE
+QUERY
+NO_TASK
+OK
+NOK
+```
+
+---
+
+## Master ↔ Master (P2P)
+
+Campo:
+
+```json
+"type"
+```
+
+Valores em **minúsculas**:
+
+```text
+request_help
+response_accepted
+response_rejected
+command_redirect
+register_temporary_worker
+command_release
+notify_worker_returned
+```
+
+---
+
+## Timeout
+
+```text
+5 segundos
+```
+
+para negociações P2P.
+
+---
+
+# ✅ Sprint 1 — Heartbeat
+
+## Objetivo
+
+Permitir que o Worker verifique se o Master está ativo.
+
+### Worker → Master
 
 ```json
 {
@@ -71,7 +221,7 @@ Estabelece a infraestrutura de rede e verifica a disponibilidade entre Worker e 
 }
 ```
 
-### Resposta (Master → Worker)
+### Master → Worker
 
 ```json
 {
@@ -81,35 +231,31 @@ Estabelece a infraestrutura de rede e verifica a disponibilidade entre Worker e 
 }
 ```
 
----
+## Teste
 
-# 🔄 Sprint 2 — Comunicação de Tarefas e Apresentação de Trabalhadores
+```powershell
+python Master.py
+```
 
-Implementa:
+```powershell
+python worker.py
+```
 
-- Consumo de fila
-- Distribuição de tarefas
-- Relatórios de status
+### Definition of Done
 
-## Fluxo de Trabalho
-
-### 1. Apresentação
-Worker conecta e envia `WORKER_UUID`.
-
-### 2. Distribuição
-Master consome tarefa da fila e despacha para o Worker.
-
-### 3. Processamento
-Worker simula execução utilizando `sleep` aleatório.
-
-### 4. Confirmação
-Worker envia status da execução e Master responde com ACK.
+* Worker conecta ao Master
+* Envia HEARTBEAT
+* Recebe resposta `ALIVE`
 
 ---
 
-## Payloads Oficiais
+# ✅ Sprint 2 — Apresentação / Ciclo de Tarefas
 
-### Pedido de Tarefa (Worker → Master)
+## Objetivo
+
+Implementar handshake, distribuição de tarefas e confirmação de processamento.
+
+### Apresentação do Worker
 
 ```json
 {
@@ -119,20 +265,18 @@ Worker envia status da execução e Master responde com ACK.
 }
 ```
 
-> `SERVER_UUID` é opcional caso o Worker esteja emprestado.
+### Master → Worker
 
----
-
-### Envio de Tarefa (Master → Worker)
+Com tarefa:
 
 ```json
 {
   "TASK": "QUERY",
-  "USER": "Nome_Usuario"
+  "USER": "Michel"
 }
 ```
 
-### Caso não existam tarefas
+Sem tarefa:
 
 ```json
 {
@@ -140,9 +284,7 @@ Worker envia status da execução e Master responde com ACK.
 }
 ```
 
----
-
-### Relatório de Status (Worker → Master)
+### Worker → Master
 
 ```json
 {
@@ -152,7 +294,7 @@ Worker envia status da execução e Master responde com ACK.
 }
 ```
 
-### Confirmação (Master → Worker)
+### Master → Worker
 
 ```json
 {
@@ -161,195 +303,243 @@ Worker envia status da execução e Master responde com ACK.
 }
 ```
 
----
+### Definition of Done
 
-# 🚀 Sprint 3 — Negociação Master-to-Master e Redirecionamento Dinâmico
-
-Implementa negociação consensual entre Masters para empréstimo de Workers quando um nó está saturado.
-
-Os Workers podem ser redirecionados dinamicamente e devolvidos quando a carga se normaliza.
-
----
-
-## Fluxo de Trabalho
-
-### 1. Monitoramento
-Master verifica o tamanho da fila.
-
-### 2. Negociação
-Caso esteja saturado, solicita ajuda aos Masters vizinhos.
-
-### 3. Redirecionamento
-O vizinho cede um Worker e o Master instrui o Worker a mudar.
-
-### 4. Devolução
-Quando a carga reduz, o Worker retorna ao Master original.
+* Handshake com UUID
+* QUERY e NO_TASK funcionando
+* STATUS retornado corretamente
+* ACK enviado pelo Master
 
 ---
 
-## Payloads Oficiais (P2P)
+# ✅ Sprint 3 — Negociação Master↔Master (P2P) e Redirecionamento
 
-### Pedido de Ajuda (Master → Master)
+## Fluxo Completo
 
-```json
-{
-  "TASK": "REQUEST_HELP",
-  "MASTER_UUID": "Master_A",
-  "NEEDED_WORKERS": 1
-}
+```text
+Master A
+   │
+   ├── request_help
+   ▼
+Master B
+   │
+   ├── response_accepted
+   │
+   ├── command_redirect
+   ▼
+Worker B1
+   │
+   ├── reconnect
+   ├── register_temporary_worker
+   ▼
+Master A
+   │
+   ├── processamento
+   │
+   ├── command_release
+   └── notify_worker_returned
 ```
 
----
+### Tipos de Mensagens
 
-### Resposta de Concessão
-
-```json
-{
-  "TASK": "GRANT_HELP",
-  "WORKER_UUID": "W-999"
-}
+```text
+request_help
+response_accepted
+response_rejected
+command_redirect
+register_temporary_worker
+command_release
+notify_worker_returned
 ```
 
-### Ou negação
+## Teste Local
 
-```json
-{
-  "TASK": "DENY_HELP"
-}
+### Criar segunda instância
+
+```powershell
+cd "C:\Users\Cliente\Desktop\Sistemas Distribuidos"
+
+Copy-Item -Recurse -Force "Projeto-ASD" "Projeto-ASD-master2"
 ```
 
----
+### Configuração
 
-### Redirecionamento de Worker
-
-```json
-{
-  "TASK": "SWITCH_MASTER",
-  "NEW_MASTER": "IP:porta"
-}
-```
-
----
-
-### Devolução de Worker
+#### Master A
 
 ```json
 {
-  "TASK": "RETURN_WORKER",
-  "WORKER_UUID": "W-999"
-}
-```
-
----
-
-# 🛠️ Como Executar
-
-## Configuração
-
-Exemplo de `config.json`:
-
-```json
-{
-  "host": "localhost",
   "port": 5000,
-  "master_uuid": "Master_A",
-  "threshold": 3,
-  "neighbors": ["localhost:5001"],
-  "worker_uuid": "Worker_A1",
-  "original_master": "Master_A"
+  "threshold": 1,
+  "neighbors": ["127.0.0.1:5001"],
+  "master_uuid": "michel_1"
+}
+```
+
+#### Master B
+
+```json
+{
+  "port": 5001,
+  "threshold": 10,
+  "neighbors": ["127.0.0.1:5000"],
+  "master_uuid": "michel_2"
+}
+```
+
+### Executar
+
+Terminal 1:
+
+```powershell
+python Master.py
+```
+
+Terminal 2:
+
+```powershell
+python Master.py
+```
+
+Terminal 3:
+
+```powershell
+python worker.py
+```
+
+### Definition of Done
+
+Fluxo completo registrado nos logs:
+
+```text
+request_help
+→ response_accepted
+→ command_redirect
+→ register_temporary_worker
+→ command_release
+→ notify_worker_returned
+```
+
+---
+
+# ✅ Sprint 4 — Telemetria e Dashboard
+
+## Objetivo
+
+Enviar métricas periódicas ao Supervisor.
+
+### Configuração
+
+| Campo     | Valor        |
+| --------- | ------------ |
+| Host      | nuted-ia.dev |
+| Porta     | 443          |
+| TLS       | Sim          |
+| Intervalo | 10 segundos  |
+
+---
+
+### Exemplo de Payload
+
+```json
+{
+  "server_uuid": "michel_1",
+  "hostname": "michel_1.farm.local",
+  "role": "master",
+  "task": "performance_report",
+  "timestamp": "2026-06-08T12:34:56Z",
+  "message_id": "<uuid>",
+  "payload_version": "sprint4-monitor-v2"
 }
 ```
 
 ---
 
-## Iniciar o Master
+## Testes
 
-```bash
-python master.py
+### Verificar conectividade
+
+```powershell
+Test-NetConnection -ComputerName nuted-ia.dev -Port 443
 ```
 
-O Master abrirá a porta de escuta e iniciará o gerenciamento dos Workers.
+### Executar Master
 
----
-
-## Iniciar o Worker
-
-```bash
-python work.py
+```powershell
+python Master.py
 ```
 
-O Worker conectará ao Master e iniciará o ciclo de heartbeat e processamento de tarefas.
+Log esperado:
+
+```text
+[SUPERVISOR] Telemetria enviada com sucesso.
+```
+
+Dashboard:
+
+```text
+https://nuted-ia.dev/supervisor/dashboard/
+```
 
 ---
 
-## Testando P2P
+# 📸 Evidências para Entrega
 
-Execute múltiplos Masters em portas diferentes:
+Incluir:
 
-- `5000`
-- `5001`
-
-Configure os vizinhos no `config.json` apontando para os outros Masters.
-
----
-
-# 🧪 Testes e Cenários
-
-## Cenários CT01-CT05
-
-Verifique os cenários definidos nas especificações:
-
-- Apresentação de Worker
-- Distribuição de tarefas
-- Relatórios de status
-- Heartbeat
-- Negociação P2P
+* README.md
+* requirements.txt
+* .gitignore
+* Prints dos Masters e Workers
+* Logs de negociação P2P
+* Captura do Dashboard
+* Relatório dos testes executados
 
 ---
 
-## Interoperabilidade
+# 🛠️ Comandos Úteis
 
-Teste a comunicação com sistemas de outras equipes utilizando o protocolo JSON consensual.
+## Ativar ambiente virtual
 
----
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
 
-## Logs
+## Executar Master
 
-O projeto utiliza `logging` para depuração.
+```powershell
+python Master.py
+```
 
-As mensagens de execução aparecem diretamente no console.
+## Executar Worker
 
----
+```powershell
+python worker.py
+```
 
-# 📝 Notas de Implementação
+## Gerar requirements
 
-## Strict Parsing
-Campos desconhecidos no JSON devem ser ignorados para permitir extensões futuras.
-
-## Sensibilidade a maiúsculas
-Valores como:
-
-- `"ALIVE"`
-- `"QUERY"`
-- `"ACK"`
-
-devem permanecer em maiúsculo.
-
-## Timeout
-O Worker aguarda até **5 segundos** por resposta antes de reconectar.
-
-## Resiliência
-Reconexão automática em caso de falhas de comunicação.
+```powershell
+pip freeze > requirements.txt
+```
 
 ---
 
-# 🤝 Contribuição
+# 📌 Boas Práticas
 
-Sinta-se à vontade para abrir:
-
-- Issues
-- Pull Requests
-
-Este projeto visa cumprir os objetivos **O1-O6** do plano geral de Sistemas Distribuídos.
+* Não enviar `.venv` ao repositório.
+* Ajustar os IDs exigidos pelo professor antes da apresentação.
+* Registrar logs com timestamps.
+* Remover logs de DEBUG antes da entrega final.
+* Validar comunicação P2P antes da demonstração.
 
 ---
+
+## 👨‍💻 Autor
+
+Projeto desenvolvido para a disciplina de **Sistemas Distribuídos (ASD)**, demonstrando:
+
+* Arquitetura Master–Worker
+* Comunicação TCP com JSON
+* Balanceamento horizontal dinâmico
+* Negociação P2P entre Masters
+* Telemetria e monitoramento distribuído

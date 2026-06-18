@@ -1,9 +1,21 @@
 {
-  "host": "192.168.0.107",
+  "host": "10.62.217.28",
   "port": 5000,
+<<<<<<< HEAD
   "master_uuid": "Master_2",
   "threshold": 1,
   "neighbors": ["192.168.1.22:5000"],
   "worker_uuid": "Worker_2",
   "original_master": "Master_2"
+=======
+  "master_uuid": "Master_A",
+  "threshold": 3,
+<<<<<<< HEAD
+  "neighbors": ["192.168.0.100:5000"],
+=======
+  "neighbors": ["10.62.217.28:5000"],
+>>>>>>> cac3cbf (Correções para sprint 3)
+  "worker_uuid": "Worker_A1",
+  "original_master": "Master_A"
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
 }

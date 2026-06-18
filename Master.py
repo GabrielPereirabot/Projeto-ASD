@@ -5,9 +5,13 @@ import queue
 import logging
 import uuid
 import time
+<<<<<<< HEAD
 from datetime import datetime, timezone  # [REQUISITO ISO-8601]
 import psutil  # [REQUISITO PERFORMANCE.SYSTEM]
 import ssl     # [REQUISITO TLS SOBRE TCP]
+=======
+import os 
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
 
 # ==============================================================================
 # [SPRINT 01 - CONFIGURAÇÃO BASE]
@@ -183,9 +187,27 @@ def send_telemetry_loop():
         except Exception as e:
             logging.error(f"[SUPERVISOR - FALHA] Erro ao processar ou enviar métricas: {e}")
 
+<<<<<<< HEAD
 
 def handle_connection(client_socket, address):
     global borrowed_workers, lent_workers, local_workers_sockets, running_tasks, tasks_completed_counter, tasks_failed_counter
+=======
+# Estados de Controle
+borrowed_workers = {}      # {worker_uuid: original_master_address}
+<<<<<<< HEAD
+local_workers_sockets = {} # {worker_uuid: client_socket}
+
+def handle_connection(client_socket, address):
+    global borrowed_workers, local_workers_sockets
+=======
+local_workers_sockets = {} # {worker_uuid: client_socket} (Para mandar redirects)
+workers_active_count = 0   # Contador de tarefas sendo processadas
+
+def handle_connection(client_socket, address):
+    """ Centraliza a conexão e realiza a triagem inicial de pacotes (Strict Parsing) """
+    global borrowed_workers, local_workers_sockets, workers_active_count
+>>>>>>> cac3cbf (Correções para sprint 3)
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
     buffer = ""
     current_worker_attached = None
     
@@ -216,7 +238,15 @@ def handle_connection(client_socket, address):
                         
                         if msg_type == "request_help":
                             handle_request_help(client_socket, req_id, payload)
+<<<<<<< HEAD
                             return 
+=======
+<<<<<<< HEAD
+                            return
+=======
+                            return 
+>>>>>>> cac3cbf (Correções para sprint 3)
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
                         
                         elif msg_type == "notify_worker_returned":
                             w_id = payload.get("worker_id")
@@ -243,6 +273,11 @@ def handle_connection(client_socket, address):
                             current_worker_attached = w_uuid
                             if w_uuid not in borrowed_workers:
                                 local_workers_sockets[w_uuid] = client_socket
+<<<<<<< HEAD
+=======
+                            
+                            logging.info(f"[FILA] Worker {w_uuid} solicitando tarefa. Carga atual: {task_queue.qsize()}")
+>>>>>>> cac3cbf (Correções para sprint 3)
                             
                             # Logica de devolução
                             limiar_liberacao = config['threshold'] // 2
@@ -264,8 +299,13 @@ def handle_connection(client_socket, address):
                             
                             # Envio de tarefa
                             if not task_queue.empty():
+<<<<<<< HEAD
                                 user_task, _ = task_queue.get() 
                                 running_tasks[w_uuid] = user_task
+=======
+                                user_task = task_queue.get()
+                                workers_active_count += 1 
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
                                 response = {"TASK": "QUERY", "USER": user_task}
                             else:
                                 response = {"TASK": "NO_TASK"}
@@ -282,26 +322,65 @@ def handle_connection(client_socket, address):
                             ack = {"STATUS": "ACK", "WORKER_UUID": w_uuid}
                             client_socket.sendall((json.dumps(ack) + "\n").encode('utf-8'))
                             
+<<<<<<< HEAD
                             # Devolução pós processamento
                             limiar_liberacao = config['threshold'] // 2
                             if w_uuid in borrowed_workers and task_queue.qsize() <= limiar_liberacao:
                                 orig_master = borrowed_workers[w_uuid]
+=======
+<<<<<<< HEAD
+=======
+                            workers_active_count -= 1 
+                            
+                            if task_queue.empty() and workers_active_count == 0:
+                                logging.info("Todas as tarefas concluídas. Encerrando Master.")
+                                os._exit(0)
+                            
+                            # Correção SPRINT 3: Devolução sem fechar socket abruptamente
+>>>>>>> cac3cbf (Correções para sprint 3)
+                            limiar_liberacao = config['threshold'] // 2
+                            if w_uuid in borrowed_workers and task_queue.qsize() <= limiar_liberacao:
+                                orig_master = borrowed_workers[w_uuid]
+                                logging.info(f"[DEVOLUÇÃO] Carga normalizada. Agendando liberação de {w_uuid} para {orig_master}")
+                                
+<<<<<<< HEAD
+                                # 2.5.a) Comando para o Worker
+=======
+>>>>>>> cac3cbf (Correções para sprint 3)
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
                                 release_msg = {
                                     "type": "command_release",
                                     "request_id": str(uuid.uuid4()),
                                     "payload": {"original_master_address": orig_master}
                                 }
+<<<<<<< HEAD
                                 try:
                                     client_socket.sendall((json.dumps(release_msg) + "\n").encode('utf-8'))
                                 except Exception:
                                     pass
+=======
+                                client_socket.sendall((json.dumps(release_msg) + "\n").encode('utf-8'))
+<<<<<<< HEAD
+                                
+                                # Pequeno delay para garantir envio antes de fechar/deletar
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
                                 time.sleep(0.1)
                                 threading.Thread(target=notify_neighbor_release, args=(orig_master, w_uuid), daemon=True).start()
                                 
+=======
+                                threading.Thread(target=notify_neighbor_release, args=(orig_master, w_uuid), daemon=True).start()
+                                
+>>>>>>> cac3cbf (Correções para sprint 3)
                                 del borrowed_workers[w_uuid]
+<<<<<<< HEAD
                                 if w_uuid in local_workers_sockets: del local_workers_sockets[w_uuid]
                                 return 
                                 
+=======
+                                if w_uuid in local_workers_sockets: 
+                                    del local_workers_sockets[w_uuid]
+                
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
                 except json.JSONDecodeError:
                     pass
     
@@ -320,6 +399,10 @@ def handle_connection(client_socket, address):
             del running_tasks[current_worker_attached]
         client_socket.close()
 
+<<<<<<< HEAD
+=======
+# ... (funções handle_request_help, notify_neighbor_release, check_load_and_negotiate_loop e start_master permanecem inalteradas)
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
 
 def handle_request_help(client_socket, req_id, payload):
     global local_workers_sockets, lent_workers
@@ -347,8 +430,14 @@ def handle_request_help(client_socket, req_id, payload):
     if task_queue.qsize() < config['threshold'] and local_workers_sockets:
         chosen_worker_id = list(local_workers_sockets.keys())[0]
         worker_sock = local_workers_sockets[chosen_worker_id]
+<<<<<<< HEAD
         
+<<<<<<< HEAD
         # Envia a resposta de aceitação confirmando o redirecionamento para o mestre correto
+=======
+=======
+>>>>>>> cac3cbf (Correções para sprint 3)
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
         response = {
             "type": "response_accepted",
             "request_id": req_id,
@@ -358,8 +447,15 @@ def handle_request_help(client_socket, req_id, payload):
             }
         }
         client_socket.sendall((json.dumps(response) + "\n").encode('utf-8'))
+<<<<<<< HEAD
         
+<<<<<<< HEAD
         # Cria o comando de redirecionamento ordenando que o Worker local vá para o Master saturado
+=======
+=======
+>>>>>>> cac3cbf (Correções para sprint 3)
+        saturado_address = f"{config['neighbors'][0]}" 
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
         redirect = {
             "type": "command_redirect",
             "request_id": str(uuid.uuid4()),
@@ -374,13 +470,28 @@ def handle_request_help(client_socket, req_id, payload):
         except Exception:
             pass
     else:
+<<<<<<< HEAD
         response = {"type": "response_rejected", "request_id": req_id, "payload": {"reason": "high_load"}}
+=======
+<<<<<<< HEAD
+        response = {
+            "type": "response_rejected",
+            "request_id": req_id,
+            "payload": {"reason": "high_load"}
+        }
+=======
+        response = {"type": "response_rejected", "request_id": req_id, "payload": {"reason": "high_load"}}
+>>>>>>> cac3cbf (Correções para sprint 3)
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
         client_socket.sendall((json.dumps(response) + "\n").encode('utf-8'))
 
 
 def notify_neighbor_release(neighbor_address, worker_id):
+<<<<<<< HEAD
     # [SPRINT 03 - CONEXÃO ISOLADA COM TIMEOUT]
     # Tarefa: Proteger o fechamento do recurso com "with" e aplicar timeout rígido para conexões P2P externas instáveis
+=======
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(5.0)
@@ -392,9 +503,15 @@ def notify_neighbor_release(neighbor_address, worker_id):
                 "payload": {"worker_id": worker_id}
             }
             sock.sendall((json.dumps(msg) + "\n").encode('utf-8'))
+<<<<<<< HEAD
     except Exception:
         pass
 
+=======
+            logging.info(f"[NOTIFICAÇÃO] Devolução de {worker_id} confirmada para {neighbor_address}")
+    except Exception as e:
+        logging.error(f"Erro ao notificar vizinho: {e}")
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
 
 def check_load_and_negotiate_loop():
     while True:
@@ -408,27 +525,34 @@ def check_load_and_negotiate_loop():
                         sock.settimeout(5.0)
                         host, port = neighbor.split(':')
                         sock.connect((host, int(port)))
+<<<<<<< HEAD
                         req_id = str(uuid.uuid4())
+=======
+>>>>>>> cac3cbf (Correções para sprint 3)
                         request = {
                             "type": "request_help",
-                            "request_id": req_id,
-                            "payload": {
-                                "master_id": config['master_uuid'],
-                                "current_load": task_queue.qsize(),
-                                "capacity": config['threshold'],
-                                "workers_needed": 1
-                            }
+                            "request_id": str(uuid.uuid4()),
+                            "payload": {"master_id": config['master_uuid'], "current_load": task_queue.qsize()}
                         }
                         sock.sendall((json.dumps(request) + "\n").encode('utf-8'))
+<<<<<<< HEAD
                         res_data = sock.recv(2048).decode('utf-8').strip()
                         if res_data:
                             if "\n" in res_data: res_data, _ = res_data.split("\n", 1)
                             res = json.loads(res_data)
                             if res.get("type") == "response_accepted":
                                 break
+<<<<<<< HEAD
                 except Exception:
                     pass
 
+=======
+=======
+                        break
+>>>>>>> cac3cbf (Correções para sprint 3)
+                except Exception as e:
+                    logging.error(f"Falha ao negociar: {e}")
+>>>>>>> a28a132034fdcc602caecd27709c9e7c7bf8bd3c
 
 def start_master():
     """ [SPRINT 01] Inicialização do Servidor Local """

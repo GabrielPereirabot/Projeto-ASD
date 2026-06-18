@@ -1,11 +1,10 @@
 {
-  "host": "127.0.0.1",
+  "host": "10.62.217.28",
   "port": 5000,
-  "master_uuid": "michel_1",
-  "original_master": "michel_1",
-  "threshold": 3,
-  "neighbors": ["127.0.0.1:5001"],
-  "worker_uuid": "Worker_A1",
-  "hostname": "master-a.local",
-  "default_peer_port": 5000
+  "master_uuid": "master_2_A.local",
+  "threshold": 100,
+  "neighbors": ["10.62.217.25:5000"],
+  "worker_uuid": "Worker2_A.local",
+  "original_master": "master_2_A.local",
+  "hostname": "master_2_A.local"
 }

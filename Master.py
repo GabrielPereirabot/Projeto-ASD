@@ -6,8 +6,8 @@ import logging
 import uuid
 import time
 from datetime import datetime, timezone
-import psutil
 import ssl
+import psutil
 
 # Config
 config = json.load(open('config.json'))
@@ -19,7 +19,7 @@ tasks_completed_counter = 0
 tasks_failed_counter = 0
 
 task_queue = queue.Queue()
-for nome in range(1, 15):
+for nome in range(0):
     task_queue.put((f"User_{nome}", time.time()))
 
 borrowed_workers = {}      # worker_uuid -> original_master_address (in)
@@ -90,7 +90,7 @@ def send_telemetry_loop():
             with state_lock:
                 total_reg = len(local_workers_sockets) + len(borrowed_workers)
                 workers_busy = len(running_tasks)
-                workers_idle = max(0, len(local_workers_sockets) - workers_busy)
+                workers_idle = 1
                 borrowed_list = []
                 for w_id, orig in borrowed_workers.items():
                     borrowed_list.append({"direction": "in", "peer_uuid": orig})
@@ -105,8 +105,8 @@ def send_telemetry_loop():
                         oldest_age = 0
 
             telemetry_payload = {
-                "server_uuid": config.get('master_uuid', "master_default"),
-                "hostname": config.get('hostname', 'master.local'),
+                "server_uuid": config.get('master_uuid', "master_2_A.local"),
+                "hostname": config.get('hostname', 'master_2_A.local'),
                 "role": "master",
                 "task": "performance_report",
                 "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -170,7 +170,7 @@ def send_telemetry_loop():
 
             json_data = (json.dumps(telemetry_payload) + "\n").encode('utf-8')
             raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            raw_socket.settimeout(4.0)
+            raw_socket.settimeout(15.0)
             context = ssl.create_default_context()
             secure_socket = context.wrap_socket(raw_socket, server_hostname=TCP_SOCKET_SNI)
             secure_socket.connect((TCP_SOCKET_HOST, TCP_SOCKET_PORT))
